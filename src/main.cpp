@@ -16,7 +16,7 @@
 
 #include "arduino_secrets.h"
 
-// this line added  for testing git updating  
+// this line added  for testing git updating
 
 char ssid[] = SECRET_SSID;
 char pass[] = SECRET_PASS;
@@ -52,6 +52,12 @@ void printWifiStatus()
   Serial.print("IP Address: ");
   Serial.println(ip);
 }
+
+void update_water_sensor()
+{
+  
+}
+
 void setup()
 {
   Serial.begin(9600);
@@ -102,6 +108,7 @@ void loop()
       modbusTCPServer.poll();
 
       updaterelay();
+      update_water_sensor();
     }
 
     Serial.println("client disconnected");
