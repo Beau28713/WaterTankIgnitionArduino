@@ -1,4 +1,4 @@
-# Arduino UNO REV 2 and Ignition Scada Communication over TCP
+# Arduino and Ignition Scada Communication over TCP
 
 
 #### About
