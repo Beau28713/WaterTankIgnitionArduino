@@ -1,116 +1,70 @@
-/*
-  WiFi Modbus TCP Server
-
-  Circuit:
-   - Uno WIFI Rev 2
-
-  created 6 Oct 2024
-  by Beau Clark
-*/
-
 #include <SPI.h>
 #include <WiFiNINA.h>
-
-#include <ArduinoRS485.h>
 #include <ArduinoModbus.h>
 
 #include "arduino_secrets.h"
-
-// this line added  for testing git updating
 
 char ssid[] = SECRET_SSID;
 char pass[] = SECRET_PASS;
 
 const int relay_pin = LED_BUILTIN;
-
 int status = WL_IDLE_STATUS;
 
-WiFiServer wifiServer(502);
-
+WiFiServer server(502);
 ModbusTCPServer modbusTCPServer;
 
-void updaterelay()
-{
-  int coilValue = modbusTCPServer.coilRead(0x00);
-
-  if (coilValue)
-  {
-    digitalWrite(relay_pin, HIGH);
-  }
-  else
-  {
-    digitalWrite(relay_pin, LOW);
-  }
+void updaterelay() {
+  bool state = modbusTCPServer.coilRead(0x00);
+  digitalWrite(relay_pin, state ? HIGH : LOW);
 }
 
-void printWifiStatus()
-{
-  Serial.print("SSID: ");
-  Serial.println(WiFi.SSID());
-
-  IPAddress ip = WiFi.localIP();
-  Serial.print("IP Address: ");
-  Serial.println(ip);
-}
-
-void update_water_sensor()
-{
-  
-}
-
-void setup()
-{
+void setup() {
   Serial.begin(9600);
-  while (!Serial)
-  {
-    ; // wait for serial port to connect
-  }
+  while (!Serial) {}
 
-  Serial.println("Modbus TCP Server LED");
-
-  while (status != WL_CONNECTED)
-  {
-    Serial.print("Attempting to connect to SSID: ");
+  // Connect to WiFi
+  while (status != WL_CONNECTED) {
+    Serial.print("Connecting to SSID: ");
     Serial.println(ssid);
     status = WiFi.begin(ssid, pass);
-    delay(10000);
+    delay(5000);
   }
 
-  printWifiStatus();
+  Serial.println("WiFi connected.");
+  Serial.print("IP address: ");
+  Serial.println(WiFi.localIP());
 
-  wifiServer.begin();
+  // Start TCP server
+  server.begin();
 
-  if (!modbusTCPServer.begin())
-  {
-    Serial.println("Failed to start Modbus Server!");
-    while (1)
-      ;
+  // Start ModbusTCPServer and configure coils
+  if (!modbusTCPServer.begin()) {
+    Serial.println("Modbus TCP Server failed to start!");
+    while (1);
   }
 
+  modbusTCPServer.configureCoils(0x00, 5);  // Configure 5 coils starting at address 0x00 Modbus address default starts at 1 in ignition. 
+                                            // you must go into advance setting in ignition to set the starting address to 0 by checkng the box in device connections in your device you are using.
   pinMode(relay_pin, OUTPUT);
   digitalWrite(relay_pin, LOW);
 
-  modbusTCPServer.configureCoils(0x00, 1);
+  Serial.println("Modbus server started.");
 }
 
-void loop()
-{
-  WiFiClient client = wifiServer.available();
+void loop() {
+  WiFiClient client = server.available();
 
-  if (client)
-  {
-    Serial.println("new client");
+  if (client) {
+    Serial.println("New client connected");
+    modbusTCPServer.accept(client);  // Important: bind the client!
 
-    modbusTCPServer.accept(client);
-
-    while (client.connected())
-    {
-      modbusTCPServer.poll();
-
-      updaterelay();
-      update_water_sensor();
+    while (client.connected()) {
+      modbusTCPServer.poll();        // Handle Modbus request
+      updaterelay();                 // Sync output to coil state
+      delay(10);                     // Allow brief socket breathing room
     }
 
-    Serial.println("client disconnected");
+    client.stop();
+    Serial.println("Client disconnected");
   }
 }
